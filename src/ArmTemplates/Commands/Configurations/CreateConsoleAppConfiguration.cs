@@ -32,5 +32,8 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Configu
 
         [Option(longName: "preferredAPIsForDeployment", HelpText = "Create ARM templates for the given APIs Name(comma separated) else leave this parameter blank then by default all api's will be considered")]
         public string PreferredAPIsForDeployment { get; set; }
+
+        [Option(longName: "mergeApiTemplates", HelpText = "Merge ARM templates for all the APIs in the given YAML configuration")]
+        public bool MergeApiTemplates { get; set; }
     }
 }

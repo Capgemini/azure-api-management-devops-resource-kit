@@ -20,7 +20,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Tests.IoC
             var consoleLogger = Program.SetupApplicationLoggingToConsole();
             var serviceProvider = Program.CreateServiceProvider(consoleLogger);
 
-            var resolveExtractorExecutorAction = () =>
+            System.Action resolveExtractorExecutorAction = () =>
             {
                 var extractorExecutor = serviceProvider.GetRequiredService<ExtractorExecutor>();
             };

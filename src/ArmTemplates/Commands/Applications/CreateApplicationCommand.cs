@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applica
         readonly ITemplateBuilder templateBuilder;
 
         public CreateApplicationCommand(
-            ILogger<CreateApplicationCommand> logger, 
+            ILogger<CreateApplicationCommand> logger,
             CreatorExecutor creatorExecutor,
             ITemplateBuilder templateBuilder)
         {
@@ -78,6 +78,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applica
                 CreatorApiBackendUrlUpdater creatorApiBackendUrlUpdater = new CreatorApiBackendUrlUpdater();
                 creatorConfig = creatorApiBackendUrlUpdater.UpdateBackendServiceUrl(configuration.BackendUrlConfigFile, creatorConfig);
             }
+            creatorConfig.MergeApiTemplates = configuration.MergeApiTemplates;
 
             creatorConfigurationValidator.ValidateCreatorConfig();
             return creatorConfig;
@@ -139,6 +140,16 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applica
             // store name and whether the api will depend on the version set template each api necessary to build linked templates
             List<LinkedMasterTemplateAPIInformation> apiInformation = new List<LinkedMasterTemplateAPIInformation>();
             List<Template> apiTemplates = new List<Template>();
+
+            if (creatorConfig.MergeApiTemplates)
+            {
+                var operations = this.templateBuilder.GenerateEmptyTemplate().Build();
+                operations.Resources = apiVersionSetsTemplate.Resources;
+                apiTemplates.Add(operations);   // api operations template
+
+                apiTemplates.Add(this.templateBuilder.GenerateEmptyTemplate().Build());   // api properties template
+            }
+
             Console.WriteLine("Creating API templates");
             Console.WriteLine("------------------------------------------");
 
@@ -156,23 +167,31 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applica
                             creatorConfig.serviceUrlParameters.Where(s => s.ApiName.Equals(api.name)).FirstOrDefault().ServiceUrl : api.serviceUrl;
                     }
                     // create api templates from provided api config - if the api config contains a supplied apiVersion, split the templates into 2 for metadata and swagger content, otherwise create a unified template
-                    List<Template> apiTemplateSet = await apiTemplateCreator.CreateAPITemplatesAsync(api);
-                    apiTemplates.AddRange(apiTemplateSet);
-                    // create the relevant info that will be needed to properly link to the api template(s) from the master template
-                    apiInformation.Add(new LinkedMasterTemplateAPIInformation()
+                    List<Template> apiTemplateSet = await apiTemplateCreator.CreateAPITemplatesAsync(api, creatorConfig.MergeApiTemplates);
+
+                    if (!creatorConfig.MergeApiTemplates)
                     {
-                        name = api.name,
-                        isSplit = apiTemplateCreator.IsSplitAPI(api),
-                        dependsOnGlobalServicePolicies = creatorConfig.policy != null,
-                        dependsOnVersionSets = api.apiVersionSetId != null,
-                        dependsOnVersion = masterTemplateCreator.GetDependsOnPreviousApiVersion(api, apiVersions),
-                        dependsOnProducts = api.products != null,
-                        dependsOnTags = api.tags != null,
-                        dependsOnLoggers = await masterTemplateCreator.DetermineIfAPIDependsOnLoggerAsync(api, fileReader),
-                        dependsOnAuthorizationServers = api.authenticationSettings != null && api.authenticationSettings.OAuth2 != null && api.authenticationSettings.OAuth2.AuthorizationServerId != null,
-                        dependsOnBackends = await masterTemplateCreator.DetermineIfAPIDependsOnBackendAsync(api, fileReader),
-                        isServiceUrlParameterize = isServiceUrlParameterizeInYml
-                    });
+                        apiTemplates.AddRange(apiTemplateSet);
+                        // create the relevant info that will be needed to properly link to the api template(s) from the master template
+                        apiInformation.Add(new LinkedMasterTemplateAPIInformation()
+                        {
+                            name = api.name,
+                            isSplit = apiTemplateCreator.IsSplitAPI(api),
+                            dependsOnGlobalServicePolicies = creatorConfig.policy != null,
+                            dependsOnVersionSets = api.apiVersionSetId != null,
+                            dependsOnVersion = masterTemplateCreator.GetDependsOnPreviousApiVersion(api, apiVersions),
+                            dependsOnProducts = api.products != null,
+                            dependsOnTags = api.tags != null,
+                            dependsOnLoggers = await masterTemplateCreator.DetermineIfAPIDependsOnLoggerAsync(api, fileReader),
+                            dependsOnAuthorizationServers = api.authenticationSettings != null && api.authenticationSettings.OAuth2 != null && api.authenticationSettings.OAuth2.AuthorizationServerId != null,
+                            dependsOnBackends = await masterTemplateCreator.DetermineIfAPIDependsOnBackendAsync(api, fileReader),
+                            isServiceUrlParameterize = isServiceUrlParameterizeInYml
+                        });
+                    }
+                    else
+                    {
+                        await apiTemplateCreator.MergeApiTemplates(apiTemplateSet, apiTemplates);
+                    }
                 }
             }
 
@@ -195,14 +214,15 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applica
                 APITemplateResource apiResource = apiTemplate.Resources.FirstOrDefault(resource => resource.Type == ResourceTypeConstants.API) as APITemplateResource;
                 APIConfig providedAPIConfiguration = creatorConfig.apis.FirstOrDefault(api => string.Compare(apiResource.Name, APITemplateCreator.MakeResourceName(api), true) == 0);
                 // if the api version is not null the api is split into multiple templates. If the template is split and the content value has been set, then the template is for a subsequent api
-                string apiFileName = FileNameGenerator.GenerateCreatorAPIFileName(providedAPIConfiguration.name, apiTemplateCreator.IsSplitAPI(providedAPIConfiguration), apiResource.Properties.Value != null);
+                string apiFileName = FileNameGenerator.GenerateCreatorAPIFileName(creatorConfig.MergeApiTemplates ? creatorConfig.baseFileName : providedAPIConfiguration.name,
+                                                apiTemplateCreator.IsSplitAPI(providedAPIConfiguration), apiResource.Properties.Value != null);
                 FileWriter.WriteJSONToFile(apiTemplate, string.Concat(creatorConfig.outputLocation, apiFileName));
             }
             if (globalServicePolicyTemplate != null)
             {
                 FileWriter.WriteJSONToFile(globalServicePolicyTemplate, string.Concat(creatorConfig.outputLocation, fileNames.GlobalServicePolicy));
             }
-            if (apiVersionSetsTemplate != null)
+            if (apiVersionSetsTemplate != null && !creatorConfig.MergeApiTemplates)
             {
                 FileWriter.WriteJSONToFile(apiVersionSetsTemplate, string.Concat(creatorConfig.outputLocation, fileNames.ApiVersionSets));
             }
@@ -238,7 +258,6 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applica
             // write parameters to outputLocation
             FileWriter.WriteJSONToFile(templateParameters, string.Concat(creatorConfig.outputLocation, fileNames.Parameters));
             Console.WriteLine("Templates written to output location");
-
         }
     }
 }

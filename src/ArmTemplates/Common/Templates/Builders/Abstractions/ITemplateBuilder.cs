@@ -15,7 +15,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Templates
         /// <summary>
         /// Builds non-generic template
         /// </summary>
-        [Obsolete($"NonGeneric Template is obsolete. Please, use '{nameof(Build)}()' method for building template instead.")]
+        [Obsolete("NonGeneric Template is obsolete. Please, use 'Build()' method for building template instead.")]
         Template Build();
 
         /// <summary>

@@ -46,6 +46,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Models
         public string linkedTemplatesUrlQueryString { get; set; }
         public string baseFileName { get; set; }
         public List<ServiceUrlProperty> serviceUrlParameters { get; set; }
+        public bool MergeApiTemplates { get; set; }
     }
 
     public class APIVersionSetConfig : ApiVersionSetProperties
@@ -131,7 +132,6 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Models
 
     public class PropertyConfig : PropertyResourceProperties
     {
-
     }
 
     public class SubscriptionConfig : SubscriptionsTemplateProperties

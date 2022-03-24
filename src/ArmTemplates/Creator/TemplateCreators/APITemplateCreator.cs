@@ -27,12 +27,14 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
         DiagnosticTemplateCreator diagnosticTemplateCreator;
         ReleaseTemplateCreator releaseTemplateCreator;
 
+        public string InitialApiName { get; set; }
+
         public APITemplateCreator(
-            FileReader fileReader, 
-            PolicyTemplateCreator policyTemplateCreator, 
-            ProductAPITemplateCreator productAPITemplateCreator, 
-            TagAPITemplateCreator tagAPITemplateCreator, 
-            DiagnosticTemplateCreator diagnosticTemplateCreator, 
+            FileReader fileReader,
+            PolicyTemplateCreator policyTemplateCreator,
+            ProductAPITemplateCreator productAPITemplateCreator,
+            TagAPITemplateCreator tagAPITemplateCreator,
+            DiagnosticTemplateCreator diagnosticTemplateCreator,
             ReleaseTemplateCreator releaseTemplateCreator,
             ITemplateBuilder templateBuilder)
         {
@@ -45,12 +47,12 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
             this.templateBuilder = templateBuilder;
         }
 
-        public async Task<List<Template>> CreateAPITemplatesAsync(APIConfig api)
+        public async Task<List<Template>> CreateAPITemplatesAsync(APIConfig api, bool mergeTemplates = false)
         {
             // determine if api needs to be split into multiple templates
             bool isSplit = this.IsSplitAPI(api);
 
-            // update api name if necessary (apiRevision > 1 and isCurrent = true) 
+            // update api name if necessary (apiRevision > 1 and isCurrent = true)
             int revisionNumber = 0;
             if (int.TryParse(api.apiRevision, out revisionNumber))
             {
@@ -65,18 +67,18 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
             if (isSplit == true)
             {
                 // create 2 templates, an initial template with metadata and a subsequent template with the swagger content
-                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, true));
-                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, false));
+                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, true, mergeTemplates));
+                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, false, mergeTemplates));
             }
             else
             {
-                // create a unified template that includes both the metadata and swagger content 
+                // create a unified template that includes both the metadata and swagger content
                 apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, false));
             }
             return apiTemplates;
         }
 
-        public async Task<Template> CreateAPITemplateAsync(APIConfig api, bool isSplit, bool isInitial)
+        public async Task<Template> CreateAPITemplateAsync(APIConfig api, bool isSplit, bool isInitial, bool mergeTemplates = false)
         {
             // create empty template
             Template apiTemplate = this.templateBuilder.GenerateEmptyTemplate().Build();
@@ -93,8 +95,8 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
             }
 
             List<TemplateResource> resources = new List<TemplateResource>();
-            // create api resource 
-            APITemplateResource apiTemplateResource = await this.CreateAPITemplateResourceAsync(api, isSplit, isInitial);
+            // create api resource
+            APITemplateResource apiTemplateResource = await this.CreateAPITemplateResourceAsync(api, isSplit, isInitial, mergeTemplates);
             resources.Add(apiTemplateResource);
             // add the api child resources (api policies, diagnostics, etc) if this is the unified or subsequent template
             if (!isSplit || !isInitial)
@@ -131,7 +133,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
             return resources;
         }
 
-        public async Task<APITemplateResource> CreateAPITemplateResourceAsync(APIConfig api, bool isSplit, bool isInitial)
+        public async Task<APITemplateResource> CreateAPITemplateResourceAsync(APIConfig api, bool isSplit, bool isInitial, bool mergeTemplates = false)
         {
             // create api resource
             APITemplateResource apiTemplateResource = new APITemplateResource()
@@ -143,7 +145,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
                 DependsOn = new string[] { }
             };
 
-            // add properties depending on whether the template is the initial, subsequent, or unified 
+            // add properties depending on whether the template is the initial, subsequent, or unified
             if (!isSplit || !isInitial)
             {
                 // add metadata properties for initial and unified templates
@@ -218,7 +220,6 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
                     }
                     format = GetOpenApiSpecFormat(isUrl, isJSON, isVersionThree);
                 }
-
                 else
                 {
                     isJSON = IsOpenApiSpecJson(api.openApiSpecFormat);
@@ -274,6 +275,20 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
                 {
                     apiTemplateResource.Properties.ServiceUrl = this.MakeServiceUrl(api);
                 }
+
+                if (mergeTemplates)
+                {
+                    apiTemplateResource.DependsOn = apiTemplateResource.DependsOn.Append($"[resourceId('Microsoft.ApiManagement/service/apiVersionSets', parameters('{ParameterNames.ApimServiceName}'), '{api.apiVersionSetId}')]").ToArray();
+
+                    // as templates are merged we need to provide the correct depends on in order.
+                    if (!string.IsNullOrEmpty(this.InitialApiName))
+                    {
+                        apiTemplateResource.DependsOn = apiTemplateResource.DependsOn.Append($"[resourceId('Microsoft.ApiManagement/service/apis', parameters('{ParameterNames.ApimServiceName}'), '{this.InitialApiName}')]").ToArray();
+                        this.InitialApiName = api.name;
+                    }
+
+                    this.InitialApiName ??= api.name;
+                }
             }
             return apiTemplateResource;
         }
@@ -324,6 +339,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
                     throw new NotSupportedException();
             }
         }
+
         static bool IsOpenApiSpecJson(OpenApiSpecFormat openApiSpecFormat)
         {
             switch (openApiSpecFormat)
@@ -378,6 +394,31 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Template
         string MakeServiceUrl(APIConfig api)
         {
             return !string.IsNullOrEmpty(api.serviceUrl) ? $"[parameters('{api.name + "-ServiceUrl"}')]" : null;
+        }
+
+        public async Task MergeApiTemplates(List<Template> sourceTemplates, List<Template> finalTemplates)
+        {
+            await Task.CompletedTask;
+
+            foreach (var template in sourceTemplates)
+            {
+                var apiResource = template.Resources.FirstOrDefault(resource => resource.Type == ResourceTypeConstants.API) as APITemplateResource;
+                var destinationTemplate = apiResource.Properties.Value != null ? finalTemplates.First() : finalTemplates.Last();
+                if (destinationTemplate.Parameters == null) destinationTemplate.Parameters = new Dictionary<string, TemplateParameterProperties>();
+
+                //Merge parameters
+                foreach (var parameter in template.Parameters)
+                {
+                    if (destinationTemplate.Parameters.ContainsKey(parameter.Key)) continue;
+                    destinationTemplate.Parameters.Add(parameter.Key, parameter.Value);
+                }
+
+                // Merge resources
+                var resources = destinationTemplate.Resources.ToList();
+                resources.AddRange(template.Resources);
+
+                destinationTemplate.Resources = resources.ToArray();
+            }
         }
     }
 }
