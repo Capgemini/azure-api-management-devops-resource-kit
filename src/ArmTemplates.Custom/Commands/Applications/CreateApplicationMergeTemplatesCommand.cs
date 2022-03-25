@@ -13,14 +13,14 @@ using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Configurati
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Executors;
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Templates.Builders.Abstractions;
-using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Extensions;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Applications;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Common.Extensions;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Common.FileHandlers;
+using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.Models;
 
 namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.Applications
 {
-    public class CreateApplicationMergeTemplatesCommand : IConsoleAppCommand<CreateConsoleAppConfiguration, CreatorConfig>
+    public class CreateApplicationMergeTemplatesCommand : IConsoleAppCommand<CreateConsoleAppConfiguration, CreatorConfigCustom>
     {
         readonly ILogger<CreateApplicationCommand> logger;
         readonly CreatorExecutor creatorExecutor;
@@ -36,7 +36,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             this.templateBuilder = templateBuilder;
         }
 
-        public async Task<CreatorConfig> ParseInputConfigurationAsync(CreateConsoleAppConfiguration configuration)
+        public async Task<CreatorConfigCustom> ParseInputConfigurationAsync(CreateConsoleAppConfiguration configuration)
         {
             if (configuration == null)
             {
@@ -49,7 +49,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             }
 
             // convert config file to CreatorConfig class
-            FileReader fileReader = new FileReader();
+            FileReaderCustom fileReader = new FileReaderCustom();
             GlobalConstants.CommandStartDateTime = DateTime.Now.ToString("MMyyyydd  hh mm ss");
 
             CreatorConfig creatorConfig = await fileReader.ConvertConfigYAMLToCreatorConfigAsync(configuration.ConfigFile);
@@ -84,10 +84,10 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             }
 
             creatorConfigurationValidator.ValidateCreatorConfig();
-            return creatorConfig;
+            return (CreatorConfigCustom) creatorConfig;
         }
 
-        public async Task ExecuteCommandAsync(CreatorConfig creatorConfig)
+        public async Task ExecuteCommandAsync(Creator.Models.CreatorConfigCustom creatorConfig)
         {
             FileReader fileReader = new FileReader();
 
@@ -161,10 +161,10 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
                             creatorConfig.serviceUrlParameters.Where(s => s.ApiName.Equals(api.name)).FirstOrDefault().ServiceUrl : api.serviceUrl;
                     }
                     // create api templates from provided api config - if the api config contains a supplied apiVersion, split the templates into 2 for metadata and swagger content, otherwise create a unified template
-                    List<Template> apiTemplateSet = await apiTemplateCreator.CreateAPITemplatesAsync(api);
+                    List<Template> apiTemplateSet = await apiTemplateCreator.CreateAPITemplatesAsync(api, creatorConfig.templateParameters);
                     apiTemplates.AddOrMergeRange(apiTemplateSet);
 
-                    List<Template> apiParamtersTemplateSet =  apiTemplateCreator.CreateAPIParamterTemplates(api, creatorConfig.apimServiceName);
+                    List<Template> apiParamtersTemplateSet =  apiTemplateCreator.CreateAPIParamterTemplates(api, creatorConfig.templateParameters,  creatorConfig.apimServiceName);
                     apiParamtersTemplates.AddOrMergeRange(apiParamtersTemplateSet);
 
                     // create the relevant info that will be needed to properly link to the api template(s) from the master template
@@ -184,6 +184,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
                     });
                 }
             }
+
 
             apiTemplates.AddOrMergeRange(apiVersionSetsTemplate);
 
@@ -252,5 +253,6 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             //FileWriter.WriteJSONToFile(templateParameters, string.Concat(creatorConfig.outputLocation, fileNames.Parameters));
             Console.WriteLine("Templates written to output location");
         }
+
     }
 }

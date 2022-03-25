@@ -14,6 +14,8 @@ using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Templates.Pro
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Templates.Builders.Abstractions;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Templates.TagApi;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.TemplateCreators;
+using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.Models;
+using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Extensions;
 
 namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.TemplateCreators
 {
@@ -46,7 +48,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
             this.templateBuilder = templateBuilder;
         }
 
-        public async Task<List<Template>> CreateAPITemplatesAsync(APIConfig api)
+        public async Task<List<Template>> CreateAPITemplatesAsync(APIConfig api, List<TemplateParatrerConfig> templateParatrers)
         {
             // determine if api needs to be split into multiple templates
             bool isSplit = this.IsSplitAPI(api);
@@ -66,18 +68,18 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
             if (isSplit == true)
             {
                 // create 2 templates, an initial template with metadata and a subsequent template with the swagger content
-                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, true));
-                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, false));
+                apiTemplates.Add(await this.CreateAPITemplateAsync(api, templateParatrers, isSplit, true));
+                apiTemplates.Add(await this.CreateAPITemplateAsync(api, templateParatrers, isSplit, false));
             }
             else
             {
                 // create a unified template that includes both the metadata and swagger content 
-                apiTemplates.Add(await this.CreateAPITemplateAsync(api, isSplit, false));
+                apiTemplates.Add(await this.CreateAPITemplateAsync(api, templateParatrers, isSplit, false));
             }
             return apiTemplates;
         }
 
-        public async Task<Template> CreateAPITemplateAsync(APIConfig api, bool isSplit, bool isInitial)
+        public async Task<Template> CreateAPITemplateAsync(APIConfig api, List<TemplateParatrerConfig> templateParatrers, bool isSplit, bool isInitial)
         {
             // create empty template
             Template apiTemplate = this.templateBuilder.GenerateEmptyTemplate().Build();
@@ -88,14 +90,33 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
                 { ParameterNames.ApimServiceName, new TemplateParameterProperties(){ type = "string" } }
             };
 
-            if (!isInitial)
-            {
-                apiTemplate.Parameters.Add(Custom.Common.Constants.GlobalConstants.ParameterNames.LoggerName, new TemplateParameterProperties() { type = "string" });
-            }
-
             if (!string.IsNullOrEmpty(api.serviceUrl))
             {
                 apiTemplate.Parameters.Add(api.name + "-ServiceUrl", new TemplateParameterProperties() { type = "string" });
+            }
+
+            if (!isInitial)
+            {
+                apiTemplate.Parameters.Add(Custom.Common.Constants.GlobalConstants.ParameterNames.LoggerName, new TemplateParameterProperties() { type = "string" });
+
+                if (templateParatrers != null)
+                {
+                    foreach (var paramter in templateParatrers)
+                    {
+                        if (paramter.values != null)
+                        {
+                            apiTemplate.Parameters.Add(paramter.name, new TemplateParameterProperties() { type = "object" });
+                        }
+                        else if(paramter.reference != null)
+                        {
+                            apiTemplate.Parameters.Add(paramter.name, new TemplateParameterProperties() { type = "securestring" });
+                        }
+                        else
+                        {
+                            apiTemplate.Parameters.Add(paramter.name, new TemplateParameterProperties() { type = "string" });
+                        }   
+                    }
+                }
             }
 
             List<TemplateResource> resources = new List<TemplateResource>();
@@ -284,7 +305,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
             return apiTemplateResource;
         }
 
-        internal List<Template> CreateAPIParamterTemplates(APIConfig api, string apimServiceName)
+        internal List<Template> CreateAPIParamterTemplates(APIConfig api, List<TemplateParatrerConfig> templateParatrers, string apimServiceName)
         {
             // determine if api needs to be split into multiple templates
             bool isSplit = this.IsSplitAPI(api);
@@ -293,18 +314,18 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
 
             if (isSplit)
             {
-                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, apimServiceName, true));
-                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, apimServiceName, false));
+                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, templateParatrers, apimServiceName, true));
+                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, templateParatrers, apimServiceName, false));
             }
             else
             {
-                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, apimServiceName, false));
+                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, templateParatrers, apimServiceName, false));
             }
 
             return apiParamtersTemplates;
         }
 
-        internal Template CreateAPIParamterTemplates(APIConfig api, string apimServiceName, bool isInitial)
+        internal Template CreateAPIParamterTemplates(APIConfig api, List<TemplateParatrerConfig> templateParatrers, string apimServiceName, bool isInitial)
         {
             // used to create the parameter values for use in parameters file
             // create empty template
@@ -327,6 +348,24 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
             if (!isInitial)
             {
                 parameters.Add(Custom.Common.Constants.GlobalConstants.ParameterNames.LoggerName, new TemplateParameterProperties() { value = api.diagnostic.loggerId });
+
+                if (templateParatrers != null)
+                {
+                    foreach (var paramter in templateParatrers)
+                    {
+                        var vaule = paramter.value;
+                        object refrence = null;
+                        if (paramter.values != null)
+                        {
+                            vaule = paramter.values;
+                        }
+                        if (paramter.reference != null)
+                        {
+                            refrence = paramter.reference;
+                        }
+                        parameters.Add(paramter.name, new TemplateParameterProperties() { value = vaule, reference = refrence });
+                    }
+                }
             }
 
             masterTemplate.Parameters = parameters;

@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
             // reference the provided logger if loggerId is provided
             if (api.diagnostic.loggerId != null)
             {
-                diagnosticTemplateResource.Properties.loggerId = $"[resourceId('Microsoft.ApiManagement/service/loggers', parameters('{ParameterNames.ApimServiceName}'), parameters('{Common.Constants.GlobalConstants.ParameterNames.LoggerName}')]";
+                diagnosticTemplateResource.Properties.loggerId = $"[resourceId('Microsoft.ApiManagement/service/loggers', parameters('{ParameterNames.ApimServiceName}'), parameters('{Common.Constants.GlobalConstants.ParameterNames.LoggerName}'))]";
             }
             return diagnosticTemplateResource;
         }

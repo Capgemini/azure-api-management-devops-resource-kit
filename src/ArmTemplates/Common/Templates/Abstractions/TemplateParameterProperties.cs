@@ -6,6 +6,7 @@
         public TemplateParameterMetadata metadata { get; set; }
         public string[] allowedValues { get; set; }
         public string defaultValue { get; set; }
-        public string value { get; set; }
+        public object value { get; set; }
+        public object reference { get; set; }
     }
 }
