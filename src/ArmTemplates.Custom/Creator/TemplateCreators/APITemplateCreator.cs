@@ -284,6 +284,55 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
             return apiTemplateResource;
         }
 
+        internal List<Template> CreateAPIParamterTemplates(APIConfig api, string apimServiceName)
+        {
+            // determine if api needs to be split into multiple templates
+            bool isSplit = this.IsSplitAPI(api);
+
+            var apiParamtersTemplates = new List<Template>();
+
+            if (isSplit)
+            {
+                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, apimServiceName, true));
+                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, apimServiceName, false));
+            }
+            else
+            {
+                apiParamtersTemplates.Add(this.CreateAPIParamterTemplates(api, apimServiceName, false));
+            }
+
+            return apiParamtersTemplates;
+        }
+
+        internal Template CreateAPIParamterTemplates(APIConfig api, string apimServiceName, bool isInitial)
+        {
+            // used to create the parameter values for use in parameters file
+            // create empty template
+            Template masterTemplate = this.templateBuilder.GenerateEmptyTemplate().Build();
+
+            // add parameters with value property
+            Dictionary<string, TemplateParameterProperties> parameters = new Dictionary<string, TemplateParameterProperties>();
+            TemplateParameterProperties apimServiceNameProperties = new TemplateParameterProperties()
+            {
+                value = apimServiceName
+            };
+            parameters.Add(ParameterNames.ApimServiceName, apimServiceNameProperties);
+
+            TemplateParameterProperties serviceUrlParamProperty = new TemplateParameterProperties()
+            {
+                value = api.serviceUrl
+            };
+            parameters.Add(api.name + "-ServiceUrl", serviceUrlParamProperty);
+
+            if (!isInitial)
+            {
+                parameters.Add(Custom.Common.Constants.GlobalConstants.ParameterNames.LoggerName, new TemplateParameterProperties() { value = api.diagnostic.loggerId });
+            }
+
+            masterTemplate.Parameters = parameters;
+            return masterTemplate;
+        }
+
         internal static IDictionary<string, string[]> GetApiVersionSets(CreatorConfig creatorConfig)
         {
             var apiVersions = (creatorConfig.apiVersionSets ?? new List<APIVersionSetConfig>())
@@ -300,12 +349,14 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
                 );
         }
 
+
         static string GetOpenApiSpecFormat(bool isUrl, bool isJSON, bool isVersionThree)
         {
             return isUrl
                 ? isJSON ? isVersionThree ? "openapi-link" : "swagger-link-json" : "openapi-link"
                 : isJSON ? isVersionThree ? "openapi+json" : "swagger-json" : "openapi";
         }
+
 
         static string GetOpenApiSpecFormat(bool isUrl, OpenApiSpecFormat openApiSpecFormat)
         {

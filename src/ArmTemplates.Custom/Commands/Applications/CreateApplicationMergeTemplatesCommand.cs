@@ -143,6 +143,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             // store name and whether the api will depend on the version set template each api necessary to build linked templates
             List<LinkedMasterTemplateAPIInformation> apiInformation = new List<LinkedMasterTemplateAPIInformation>();
             List<Template> apiTemplates = new List<Template>();
+            List<Template> apiParamtersTemplates = new List<Template>();
             Console.WriteLine("Creating API templates");
             Console.WriteLine("------------------------------------------");
 
@@ -162,6 +163,10 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
                     // create api templates from provided api config - if the api config contains a supplied apiVersion, split the templates into 2 for metadata and swagger content, otherwise create a unified template
                     List<Template> apiTemplateSet = await apiTemplateCreator.CreateAPITemplatesAsync(api);
                     apiTemplates.AddOrMergeRange(apiTemplateSet);
+
+                    List<Template> apiParamtersTemplateSet =  apiTemplateCreator.CreateAPIParamterTemplates(api, creatorConfig.apimServiceName);
+                    apiParamtersTemplates.AddOrMergeRange(apiParamtersTemplateSet);
+
                     // create the relevant info that will be needed to properly link to the api template(s) from the master template
                     apiInformation.Add(new LinkedMasterTemplateAPIInformation()
                     {
