@@ -19,5 +19,21 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Common.Fi
                 return $@"/{sanitizedAPIName}.json";
             }
         }
+
+        public static string GenerateCreatorAPIParamtersFileName(string apiName, bool isSplitAPI, bool isInitialAPI)
+        {
+            // in case the api name has been appended with ;rev={revisionNumber}, take only the api name initially provided by the user in the creator config
+            string sanitizedAPIName = FileNameGenerator.GenerateOriginalAPIName(apiName);
+
+            if (isSplitAPI == true)
+            {
+                return isInitialAPI == true ? $@"/{sanitizedAPIName}-operations.parameters.json" : $@"/{sanitizedAPIName}-properties.parameters.json";
+            }
+            else
+            {
+                return $@"/{sanitizedAPIName}.parameters.json";
+            }
+        }
+        
     }
 }

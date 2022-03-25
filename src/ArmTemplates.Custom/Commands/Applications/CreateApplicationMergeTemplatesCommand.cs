@@ -201,14 +201,19 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
                 Template masterTemplate = masterTemplateCreator.CreateLinkedMasterTemplate(creatorConfig, globalServicePolicyTemplate, apiVersionSetsTemplate, productsTemplate, productAPIsTemplate, propertyTemplate, loggersTemplate, backendsTemplate, authorizationServersTemplate, tagTemplate, apiInformation, fileNames, creatorConfig.apimServiceName);
                 FileWriter.WriteJSONToFile(masterTemplate, string.Concat(creatorConfig.outputLocation, fileNames.LinkedMaster));
             }
-            foreach (Template apiTemplate in apiTemplates)
+            for (int i = 0; i < apiTemplates.Count; i++)
             {
+                Template apiTemplate = apiTemplates[i];
                 APITemplateResource apiResource = apiTemplate.Resources.FirstOrDefault(resource => resource.Type == ResourceTypeConstants.API) as APITemplateResource;
                 APIConfig providedAPIConfiguration = creatorConfig.apis.FirstOrDefault(api => string.Compare(apiResource.Name, APITemplateCreator.MakeResourceName(api), true) == 0);
                 // if the api version is not null the api is split into multiple templates. If the template is split and the content value has been set, then the template is for a subsequent api
                 string apiFileName = MergeTemplatesFileNameGenerator.GenerateCreatorAPIFileName(creatorConfig.baseFileName, apiTemplateCreator.IsSplitAPI(providedAPIConfiguration), apiResource.Properties.Value != null);
                 FileWriter.WriteJSONToFile(apiTemplate, string.Concat(creatorConfig.outputLocation, apiFileName));
+
+                string apiParamtersFileName = MergeTemplatesFileNameGenerator.GenerateCreatorAPIParamtersFileName(creatorConfig.baseFileName,apiTemplateCreator.IsSplitAPI(providedAPIConfiguration), apiResource.Properties.Value != null);
+                FileWriter.WriteJSONToFile(apiParamtersTemplates[i], string.Concat(creatorConfig.outputLocation, apiParamtersFileName));
             }
+
             if (globalServicePolicyTemplate != null)
             {
                 FileWriter.WriteJSONToFile(globalServicePolicyTemplate, string.Concat(creatorConfig.outputLocation, fileNames.GlobalServicePolicy));
