@@ -161,6 +161,9 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
         public async Task<APITemplateResource> CreateAPITemplateResourceAsync(APIConfig api, bool isSplit, bool isInitial)
         {
             // create api resource
+
+           
+
             APITemplateResource apiTemplateResource = new APITemplateResource()
             {
                 Name = MakeResourceName(api),
@@ -170,6 +173,15 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
                 DependsOn = new string[] { }
             };
 
+            if((isSplit && isInitial) || (!isSplit && !isInitial))
+            {
+                if (api.apiVersionSetId != null)
+                {
+                    string[] dependsOn = new string[] { $"[resourceId('Microsoft.ApiManagement/service/apiVersionSets', parameters('{ParameterNames.ApimServiceName}'), '{api.apiVersionSetId}')]" };
+                    apiTemplateResource.DependsOn = dependsOn;
+                }
+            }
+           
             // add properties depending on whether the template is the initial, subsequent, or unified 
             if (!isSplit || !isInitial)
             {
