@@ -16,7 +16,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
     [Verb(GlobalConstants.CreateName, HelpText = GlobalConstants.CreateDescription)]
     public class CreateConsoleAppConfigurationCustom : CreateConsoleAppConfiguration
     {
-        [Option(longName: "OutputLocation", HelpText = "Output location", Required = true)]
+        [Option(longName: "outputLocation", HelpText = "Output location")]
         public string OutputLocation { get; set; }
     }
 }
