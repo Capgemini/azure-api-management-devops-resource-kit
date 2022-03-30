@@ -10,6 +10,7 @@ using CommandLine.Text;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Common.Extensions;
 using System.Linq;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.Applications;
+using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.Configurations;
 
 namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom
 {
@@ -26,7 +27,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom
                 parserSettings.CaseSensitive = true;
             });
 
-            var parserResult = commandLineParser.ParseArguments<ExtractorConsoleAppConfiguration, CreateConsoleAppConfiguration>(args);
+            var parserResult = commandLineParser.ParseArguments<ExtractorConsoleAppConfiguration, CreateConsoleAppConfigurationCustom>(args);
             
             await parserResult.MapResult(
                 async (ExtractorConsoleAppConfiguration consoleAppConfiguration) =>
@@ -38,7 +39,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom
                     await extractorCommandApplication.ExecuteCommandAsync(extractorParameters);
                 },
 
-                async (CreateConsoleAppConfiguration consoleAppConfiguration) =>
+                async (CreateConsoleAppConfigurationCustom consoleAppConfiguration) =>
                 {
                     applicationLogger.Information($"Recognized {GlobalConstants.CreateName} command...");
                     var creatorCommandApplication = serviceProvider.GetRequiredService<CreateApplicationMergeTemplatesCommand>();

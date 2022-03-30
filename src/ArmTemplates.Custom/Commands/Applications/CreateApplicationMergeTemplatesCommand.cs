@@ -17,10 +17,11 @@ using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Commands.Application
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Common.Extensions;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Common.FileHandlers;
 using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.Models;
+using Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.Configurations;
 
 namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.Applications
 {
-    public class CreateApplicationMergeTemplatesCommand : IConsoleAppCommand<CreateConsoleAppConfiguration, CreatorConfigCustom>
+    public class CreateApplicationMergeTemplatesCommand : IConsoleAppCommand<CreateConsoleAppConfigurationCustom, CreatorConfigCustom>
     {
         readonly ILogger<CreateApplicationCommand> logger;
         readonly CreatorExecutor creatorExecutor;
@@ -36,7 +37,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             this.templateBuilder = templateBuilder;
         }
 
-        public async Task<CreatorConfigCustom> ParseInputConfigurationAsync(CreateConsoleAppConfiguration configuration)
+        public async Task<CreatorConfigCustom> ParseInputConfigurationAsync(CreateConsoleAppConfigurationCustom configuration)
         {
             if (configuration == null)
             {
@@ -81,6 +82,11 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Commands.
             {
                 CreatorApiBackendUrlUpdater creatorApiBackendUrlUpdater = new CreatorApiBackendUrlUpdater();
                 creatorConfig = creatorApiBackendUrlUpdater.UpdateBackendServiceUrl(configuration.BackendUrlConfigFile, creatorConfig);
+            }
+
+            if (!string.IsNullOrEmpty(configuration.OutputLocation))
+            {
+                creatorConfig.outputLocation = configuration.OutputLocation;
             }
 
             creatorConfigurationValidator.ValidateCreatorConfig();
