@@ -175,13 +175,22 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.T
 
             if((isSplit && isInitial) || (!isSplit && !isInitial))
             {
+                var dependsOn = new List<string>();
                 if (api.apiVersionSetId != null)
                 {
-                    string[] dependsOn = new string[] { $"[resourceId('Microsoft.ApiManagement/service/apiVersionSets', parameters('{ParameterNames.ApimServiceName}'), '{api.apiVersionSetId}')]" };
-                    apiTemplateResource.DependsOn = dependsOn;
+                    dependsOn.Add($"[resourceId('Microsoft.ApiManagement/service/apiVersionSets', parameters('{ParameterNames.ApimServiceName}'), '{api.apiVersionSetId}')]");
+                }
+
+                if(!string.IsNullOrEmpty(api.dependsOn))
+                {
+                    dependsOn.Add($"[resourceId('Microsoft.ApiManagement/service/apis', parameters('{ParameterNames.ApimServiceName}'), '{api.dependsOn}')]");
+                }
+                if (dependsOn.Count > 0)
+                {
+                    apiTemplateResource.DependsOn = dependsOn.ToArray();
                 }
             }
-           
+
             // add properties depending on whether the template is the initial, subsequent, or unified 
             if (!isSplit || !isInitial)
             {

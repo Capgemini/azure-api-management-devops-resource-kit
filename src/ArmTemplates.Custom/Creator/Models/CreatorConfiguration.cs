@@ -5,6 +5,6 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Custom.Creator.M
 {
     public class CreatorConfigCustom: CreatorConfig
     {
-            public List<TemplateParatrerConfig> templateParameters { get; set; }
+        public List<TemplateParatrerConfig> templateParameters { get; set; }
     }
 }

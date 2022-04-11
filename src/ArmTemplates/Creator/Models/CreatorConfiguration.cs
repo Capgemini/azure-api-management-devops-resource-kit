@@ -86,6 +86,7 @@ namespace Microsoft.Azure.Management.ApiManagement.ArmTemplates.Creator.Models
         public string protocols { get; set; }
         public DiagnosticConfig diagnostic { get; set; }
         // does not currently include subscriptionKeyParameterNames, sourceApiId, and wsdlSelector from APITemplateResource schema
+        public string dependsOn { get; set; }
     }
 
     public enum OpenApiSpecFormat
